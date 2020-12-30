@@ -1,0 +1,50 @@
+version: '3.8'
+services:
+  db:
+    image: mysql:8
+    restart: always
+    environment:
+      MYSQL_DATABASE: "${MYSQL_DATABASE}"
+      MYSQL_USER: "${MYSQL_USER}"
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD}"
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+    ports:
+      - '3306:3306'
+    expose:
+      - '3306'
+    volumes:
+      - sql_db:/var/lib/mysql
+    cap_add:
+      - 'SYS_NICE'
+  backend:
+    image: backend
+    depends_on:
+      - db
+    build:
+      context: ./backend
+      dockerfile: backend.dockerfile
+    volumes:
+      - ./backend/prisma/migrations/:/usr/src/application/backend/prisma/migrations/
+      - ./backend/node_modules/.prisma/:/usr/src/application/backend/node_modules/.prisma
+      - ./backend/node_modules/@prisma/:/usr/src/application/backend/node_modules/@prisma
+    ports:
+      - '4000:3000'
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: frontend.dockerfile
+    expose:
+      - '3000'
+  nginx:
+    image: nginx:latest
+    volumes:
+      - ${PROJECT_NGINX_CONFIG}:/etc/nginx/nginx.conf
+      - ./nginx/error.log:/etc/nginx/error_log.log
+      - ./nginx/cache/:/etc/nginx/cache
+      - /etc/letsencrypt/:/etc/letsencrypt/
+    ports:
+      - '80:80'
+      - '443:443'
+
+volumes:
+  sql_db:

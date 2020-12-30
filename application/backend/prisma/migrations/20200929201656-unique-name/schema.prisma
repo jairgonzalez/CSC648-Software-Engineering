@@ -1,0 +1,20 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+datasource db {
+  provider = "mysql"
+  url = "***"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model County {
+    id         Int     @default(autoincrement()) @id
+    population Int?
+    name       String  @unique
+    area       Float?
+
+    @@index([name])
+}

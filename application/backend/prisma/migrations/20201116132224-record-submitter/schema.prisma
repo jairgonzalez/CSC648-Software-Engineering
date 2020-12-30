@@ -1,0 +1,71 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+datasource db {
+  provider = "mysql"
+  url = "***"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model County {
+    id           Int      @default(autoincrement()) @id
+    population   Int?
+    name         String   @unique
+    area         Float?
+    latitude     Float?
+    longitude    Float?
+    covidRecords CovidRecord[]
+    fireRecords  FireRecord[]
+    users        User[]
+    @@index([name])
+}
+
+model CovidRecord {
+    id           Int      @default(autoincrement()) @id
+    county_id    Int      //scalar field, see below
+    county       County   @relation(fields: [county_id], references: [id])
+    submitter_id Int
+    submitter    User     @relation(fields: [submitter_id], references: [id])
+    cases        Int?
+    deaths       Int?
+    icu          Int?
+    hosp         Int?
+    date         DateTime @default(now())
+    approved     Boolean  @default(false)
+}
+
+model FireRecord {
+    id           Int      @default(autoincrement()) @id
+    start_date   DateTime @default(now())
+    end_date     DateTime?
+    aqi          Int?
+    EvacuationLevel Int?
+    county_id    Int
+    county       County   @relation(fields: [county_id], references: [id])
+    submitter_id Int
+    submitter    User     @relation(fields: [submitter_id], references: [id])
+    area         Float?
+    active       Boolean
+    name         String?
+    approved     Boolean  @default(false)
+}
+
+model User {
+    id           Int      @default(autoincrement()) @id
+    firstName    String
+    lastName     String
+    email        String   @unique
+    passwordHash String
+    phone        String   @unique
+    access       String
+    county_id    Int
+    county       County   @relation(fields: [county_id], references: [id])
+    covidRecords CovidRecord[]
+    fireRecords  FireRecord[]
+    @@index([email])
+    @@index([county_id])
+}
+

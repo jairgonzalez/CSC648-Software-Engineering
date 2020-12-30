@@ -1,0 +1,23 @@
+version: '3.8'
+services:
+  db:
+    image: mysql:8
+    environment:
+      MYSQL_DATABASE: 'db'
+      MYSQL_USER: 'TEAM6'
+      MYSQL_PASSWORD: 'docker'
+      MYSQL_ROOT_PASSWORD: 'toor'
+    ports:
+      - '3306:3306'
+  backend:
+    image: 388525456538.dkr.ecr.us-west-1.amazonaws.com/csc648project:latest
+    depends_on:
+      - db
+    ports:
+      - '4000:4000'
+  frontend:
+    image: 388525456538.dkr.ecr.us-west-1.amazonaws.com/csc648frontend
+    ports:
+      - '80:80'
+volumes:
+  sql_db:

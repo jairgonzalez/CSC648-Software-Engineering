@@ -1,0 +1,507 @@
+tags:
+  - name: Counties
+    description: Provides county level data
+  - name: Users
+    description: Provides functionality for registering and authenticating users
+  - name: Input
+    description: Allows employees to input data
+  - name: Admin
+    description: Requires admin level privileges
+components:
+  schemas:
+    LoginTokenResponse:
+      type: object
+      required:
+        - access_token
+        - token_type
+        - refresh_token
+      properties:
+        access_token:
+          type: string
+          description: Base64 encoded signed access JWT
+        token_type:
+          type: string
+          description: Type of token returned. For now, will always be Bearer.
+        refresh_token:
+          type: string
+          description: Describes location of response_token in cookie.
+        role:
+          type: string
+          enum: [admin, employee, standard]
+          description: Access level of user
+        email:
+          type: string
+          description: Email of user
+    RefreshTokenResponse:
+      type: object
+      required:
+        - access_token
+        - token_type
+      properties:
+        access_token:
+          type: string
+          description: Base64 encoded signed access JWT
+        token_type:
+          type: string
+          description: Type of token returned. For now, will always be Bearer.
+    County:
+      type: object
+      required:
+        - name
+      properties:
+        id:
+          type: integer
+          description: Auto generated ID
+        population:
+          type: integer
+          description: Population of county
+        name:
+          type: string
+          description: County name
+        area:
+          type: number
+          description: Area of county in square miles
+        latitude:
+          type: number
+          description: Latitude
+        longitude:
+          type: number
+          description: Longitude
+        covidRecords:
+          type: array
+          items:
+            $ref: '#/components/schemas/CovidRecord'
+        fireRecords:
+          type: array
+          items:
+            $ref: '#/components/schemas/FireRecord'
+    CovidRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Auto generated id
+        cases:
+          type: integer
+          description: Number of COVID cases
+        deaths:
+          type: integer
+          description: Number of COVID deaths
+        icu:
+          type: integer
+          description: Number of ICU cases
+        hosp:
+          type: integer
+          description: Number of hospitalizations
+        date:
+          type: string
+          format: date-time
+          description: Date of record
+    FireRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Auto generated id
+        start_date:
+          type: string
+          format: date-time
+        end_date:
+          type: string
+          format: date-time
+        aqi:
+          type: integer
+          description: Air Quality Index
+        EvacuationLevel:
+          type: integer
+        area:
+          type: number
+          description: Area of fire in square miles
+        active:
+          type: boolean
+        name:
+          type: string
+    CovidRecordInput:
+      type: object
+      properties:
+        countyName:
+          type: string
+        cases:
+          type: integer
+          description: Number of COVID cases
+        deaths:
+          type: integer
+          description: Number of COVID deaths
+        icu:
+          type: integer
+          description: Number of ICU cases
+        hosp:
+          type: integer
+          description: Number of hospitalizations
+        date:
+          type: string
+          format: date-time
+          description: Date of record
+    FireRecordInput:
+      type: object
+      properties:
+        countyName:
+          type: string
+        start_date:
+          type: string
+          format: date-time
+        end_date:
+          type: string
+          format: date-time
+        aqi:
+          type: integer
+          description: Air Quality Index
+        EvacuationLevel:
+          type: integer
+        area:
+          type: number
+          description: Area of fire in square miles
+        active:
+          type: boolean
+        name:
+          type: string
+paths:
+  /users/register/:
+    post:
+      summary: Registers a new user with default (minimal) permissions
+      tags: [Users]
+      parameters:
+        - in: body
+          name: firstName
+          schema:
+            type: string
+        - in: body
+          name: lastName
+          schema:
+            type: string
+        - in: body
+          name: email
+          required: true
+          schema:
+            type: string
+        - in: body
+          name: password
+          required: true
+          schema:
+            type: string
+        - in: body
+          name: phone
+          schema:
+            type: string
+      responses:
+        201:
+          description: User has been successfully registered
+        422:
+          description: Email is already registered
+  /users/login/:
+    post:
+      summary: Logs in a registered user
+      tags: [Users]
+      parameters:
+        - in: body
+          name: email
+          required: true
+          schema:
+            type: string
+        - in: body
+          name: password
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: >
+            Successfully authenticated.
+            The response contains an HTTPOnly refresh token for future auth, as well as an access token.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: refresh_token=af234sbd; Path=/users/refresh; HttpOnly
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginTokenResponse'
+        401:
+          description: The user's password is incorrect or could not be read.
+        422:
+          description: The user's email is not registered or could not be read.
+  /users/refresh/:
+    post:
+      summary: Refreshes access with a valid refresh token.
+      tags: [Users]
+      parameters:
+        in: cookie
+        type: string
+        name: refresh_token
+        required: true
+      responses:
+        200:
+          description: The token was successfully refreshed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefreshTokenResponse'
+        400:
+          description: There was an error decoding the token.
+        401:
+          description: The token is absent, outdated, or invalid.
+  /users/employee/register/:
+    post:
+      summary: Registers a new employee with employee permissions. Requires admin level access.
+      tags: [Users]
+      parameters:
+        - in: header
+          name: Authorization
+          schema:
+            type: string
+            pattern: '^Bearer [A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*$'
+            example: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlbXBsb3llZUBlbXBsb3kuY29tIiwiYWNjZXNzIjoiZW1wbG95ZWUiLCJpYXQiOjE2MDM4MzQ4MDMsImV4cCI6MTYwMzgzODQwM30.jrsnyIwJmOM_JOFoAVi4XncSnl-loGysJ2X7Zj8ewX0.'
+        - in: body
+          name: firstName
+          schema:
+            type: string
+        - in: body
+          name: lastName
+          schema:
+            type: string
+        - in: body
+          name: email
+          required: true
+          schema:
+            type: string
+        - in: body
+          name: password
+          required: true
+          schema:
+            type: string
+        - in: body
+          name: phone
+          schema:
+            type: string
+      responses:
+        201:
+          description: User has been successfully registered
+        403:
+          description: Caller does not have admin level access
+        422:
+          description: Email is already registered
+
+  /counties/{id}:
+    get:
+      summary: Gets data for an individual county by id
+      tags: [Counties]
+      parameters:
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: [covid, fire, all]
+          description: Type of records desired - defaults to all if omitted from query string
+      responses:
+        "200":
+          description: Matching County -
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/County'
+  /counties/:
+    get:
+      summary: Gets county level data
+      tags: [Counties]
+      parameters:
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: [covid, fire, all]
+          description: Type of records desired
+        - in: query
+          name: name
+          schema:
+            type: string
+          description: Name of desired county. Will return all names containing {name}. If none is provided, returns all counties.
+      responses:
+        "200":
+          description: Matching Counties
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/County'
+  /records/covid/:
+    post:
+      summary: Posts a COVID Record
+      tags: [Input]
+      parameters:
+        - in: header
+          name: Authorization
+          schema:
+          type: string
+          pattern: '^Bearer [A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*$'
+          example: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlbXBsb3llZUBlbXBsb3kuY29tIiwiYWNjZXNzIjoiZW1wbG95ZWUiLCJpYXQiOjE2MDM4MzQ4MDMsImV4cCI6MTYwMzgzODQwM30.jrsnyIwJmOM_JOFoAVi4XncSnl-loGysJ2X7Zj8ewX0.'
+        - in: body
+          name: Record
+          description: The record to be created
+          schema:
+            $ref: '#/components/schemas/CovidRecordInput'
+      responses:
+        "201":
+          description: The record was created successfully.
+        "403":
+          description: The caller does not have write (employee) level permissions
+        "422":
+          description: There was an error parsing the record contents and it could not be created
+        "401":
+          description: The Authorization header was missing or invalid
+  /records/fire/:
+    post:
+      summary: Posts a Fire Record
+      tags: [Input]
+      parameters:
+        - in: header
+          name: Authorization
+          schema:
+            type: string
+            pattern: '^Bearer [A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*$'
+            example: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlbXBsb3llZUBlbXBsb3kuY29tIiwiYWNjZXNzIjoiZW1wbG95ZWUiLCJpYXQiOjE2MDM4MzQ4MDMsImV4cCI6MTYwMzgzODQwM30.jrsnyIwJmOM_JOFoAVi4XncSnl-loGysJ2X7Zj8ewX0.'
+        - in: body
+          name: Record
+          description: The record to be created
+          schema:
+            $ref: '#/components/schemas/FireRecordInput'
+      responses:
+        "201":
+          description: The record was created successfully.
+        "403":
+          description: The caller does not have write (employee) level permissions
+        "422":
+          description: There was an error parsing the record contents and it could not be created
+        "401":
+          description: The Authorization header was missing or invalid
+  /records/submitted/:
+    get:
+      summary: Gets records submitted by the current user, whose access must be employee or greater
+      parameters:
+        in: header
+        name: Authorization
+        schema:
+          type: string
+          pattern: '^Bearer [A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*$'
+          example: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlbXBsb3llZUBlbXBsb3kuY29tIiwiYWNjZXNzIjoiZW1wbG95ZWUiLCJpYXQiOjE2MDM4MzQ4MDMsImV4cCI6MTYwMzgzODQwM30.jrsnyIwJmOM_JOFoAVi4XncSnl-loGysJ2X7Zj8ewX0.'
+      responses:
+        "200":
+          description: The request was successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  covidRecords:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CovidRecord'
+                  fireRecords:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FireRecord'
+        "403":
+          description: The user lacks employee or higher permissions.
+  /admin/covid/verify/:
+    get:
+      summary: Validates a COVID record
+      tags: [Admin]
+      parameters:
+        - in: header
+          name: Authorization
+          schema:
+            type: string
+            pattern: '^Bearer [A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*$'
+            example: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlbXBsb3llZUBlbXBsb3kuY29tIiwiYWNjZXNzIjoiZW1wbG95ZWUiLCJpYXQiOjE2MDM4MzQ4MDMsImV4cCI6MTYwMzgzODQwM30.jrsnyIwJmOM_JOFoAVi4XncSnl-loGysJ2X7Zj8ewX0.'
+        - in: query
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: ID of validated record
+      responses:
+        "200":
+          description: The record has been validated
+        "401":
+          description: The Authorization header was missing or invalid
+        "403":
+          description: The user does not have admin privileges
+        "422":
+          description: The id field was missing or invalid
+  /admin/covid/verifyall/:
+    get:
+      summary: Validates all outstanding COVID records
+      tags: [Admin]
+      parameters:
+        - in: header
+          name: Authorization
+          schema:
+            type: string
+            pattern: '^Bearer [A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*$'
+            example: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlbXBsb3llZUBlbXBsb3kuY29tIiwiYWNjZXNzIjoiZW1wbG95ZWUiLCJpYXQiOjE2MDM4MzQ4MDMsImV4cCI6MTYwMzgzODQwM30.jrsnyIwJmOM_JOFoAVi4XncSnl-loGysJ2X7Zj8ewX0.'
+      responses:
+        "200":
+          description: The records have been validated
+        "401":
+          description: The Authorization header was missing or invalid
+        "403":
+          description: The user does not have admin privileges
+        "422":
+          description: The id field was missing or invalid
+  /admin/fire/verify/:
+    get:
+      summary: Validates a fire record
+      tags: [Admin]
+      parameters:
+        - in: header
+          name: Authorization
+          schema:
+            type: string
+            pattern: '^Bearer [A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*$'
+            example: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlbXBsb3llZUBlbXBsb3kuY29tIiwiYWNjZXNzIjoiZW1wbG95ZWUiLCJpYXQiOjE2MDM4MzQ4MDMsImV4cCI6MTYwMzgzODQwM30.jrsnyIwJmOM_JOFoAVi4XncSnl-loGysJ2X7Zj8ewX0.'
+        - in: query
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: ID of validated record
+      responses:
+        "200":
+          description: The record has been validated
+        "401":
+          description: The Authorization header was missing or invalid
+        "403":
+          description: The user does not have admin privileges
+        "422":
+          description: The id field was missing or invalid
+  /admin/fire/verifyall/:
+    get:
+      summary: Validates all outstanding fire records
+      tags: [Admin]
+      parameters:
+        - in: header
+          name: Authorization
+          schema:
+            type: string
+            pattern: '^Bearer [A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*$'
+            example: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlbXBsb3llZUBlbXBsb3kuY29tIiwiYWNjZXNzIjoiZW1wbG95ZWUiLCJpYXQiOjE2MDM4MzQ4MDMsImV4cCI6MTYwMzgzODQwM30.jrsnyIwJmOM_JOFoAVi4XncSnl-loGysJ2X7Zj8ewX0.'
+      responses:
+        "200":
+          description: The records have been validated
+        "401":
+          description: The Authorization header was missing or invalid
+        "403":
+          description: The user does not have admin privileges
+        "422":
+          description: The id field was missing or invalid

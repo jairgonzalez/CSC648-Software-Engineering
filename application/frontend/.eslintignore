@@ -1,0 +1,8 @@
+/next-env.d.ts
+/pages/_document.tsx
+<<<<<<< HEAD
+/pages/infoPages/fires.tsx
+/pages/vphome.tsx
+=======
+/pages/infoPages/counties/*
+>>>>>>> 8144bbe41a41828fd38ac7addb6ec2407fc48884
